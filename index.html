@@ -247,6 +247,39 @@
         <p>옥내소화전 설치 대상 조회 (프로토타입)</p>
     </header>
 
+    <!-- API 설정 섹션 -->
+    <section class="settings-section" id="settingsSection">
+        <div class="card">
+            <h3>⚙️ API 설정</h3>
+            <div class="form-group">
+                <label for="apiKeyInput">공공데이터포털 API 키:</label>
+                <input type="text"
+                       id="apiKeyInput"
+                       placeholder="API 키를 입력하세요"
+                       style="width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 4px;">
+                <button onclick="saveApiKey()"
+                        style="background: #4CAF50; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer;">
+                    저장
+                </button>
+                <button onclick="toggleSettings()"
+                        style="background: #666; color: white; padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px;">
+                    닫기
+                </button>
+            </div>
+            <p style="color: #666; font-size: 14px; margin-top: 10px;">
+                💡 API 키는 브라우저에 저장되며 외부로 전송되지 않습니다.<br>
+                🔗 <a href="https://www.data.go.kr/data/15044713/openapi.do" target="_blank">공공데이터포털에서 발급받기</a>
+            </p>
+        </div>
+    </section>
+
+    <div style="text-align: right; margin: 10px 20px;">
+        <button onclick="toggleSettings()"
+                style="background: #2196F3; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">
+            ⚙️ API 설정
+        </button>
+    </div>
+
     <!-- 검색 섹션 -->
     <section class="card search-section">
         <label for="address-input">🏠 건축물 주소 입력</label>
@@ -324,11 +357,37 @@
         }
     ];
 
-    /* API 키 (향후 실제 API 연동 시 입력) */
-    const API_KEY = kG9%2FhjP3xTsNQhqUD6WjLBvY2kAYzEQydlVgdOqiRoesa9Y8lfWmT%2B7%2Frp0YEcYHU3mtBPhMXttHYQukM8DU1g%3D%3D;
+    /* API 키 관리 */
+    let API_KEY = localStorage.getItem('building_api_key') || '';
 
     /* 법령 데이터 캐시 */
     let fireLawsData = null;
+
+    /* ===== 설정 관련 함수 ===== */
+
+    /**
+     * 설정 섹션 토글
+     */
+    function toggleSettings() {
+        const section = document.getElementById('settingsSection');
+        section.style.display = section.style.display === 'none' ? 'block' : 'none';
+    }
+
+    /**
+     * API 키 저장
+     */
+    function saveApiKey() {
+        const input = document.getElementById('apiKeyInput');
+        API_KEY = input.value.trim();
+
+        if (API_KEY) {
+            localStorage.setItem('building_api_key', API_KEY);
+            alert('✅ API 키가 저장되었습니다!');
+            toggleSettings();
+        } else {
+            alert('❌ API 키를 입력해주세요.');
+        }
+    }
 
     /* ===== 페이지 로드 시 초기화 ===== */
     window.onload = init;
@@ -338,6 +397,13 @@
      */
     function init() {
         loadFireLaws();
+
+        // 저장된 API 키 표시
+        if (API_KEY) {
+            document.getElementById('apiKeyInput').value = API_KEY;
+        }
+        // 설정 섹션 숨김
+        document.getElementById('settingsSection').style.display = 'none';
 
         // Enter 키로 검색 실행
         const input = document.getElementById('address-input');
@@ -374,7 +440,7 @@
     /**
      * 건축물 검색 메인 함수
      */
-    function searchBuilding() {
+    async function searchBuilding() {
         const address = document.getElementById('address-input').value.trim();
         if (!address) {
             showError('주소를 입력해주세요.');
@@ -388,25 +454,19 @@
 
         // 법령 데이터가 없으면 다시 로드 시도
         if (!fireLawsData) {
-            loadFireLaws().then(() => processSearch(address));
-        } else {
-            // 살짝 딜레이로 "검색 중" UX 연출
-            setTimeout(() => processSearch(address), 300);
+            await loadFireLaws();
         }
-    }
 
-    /**
-     * 검색 처리: 샘플 데이터에서 부분 일치 검색 후 결과 표시
-     */
-    function processSearch(address) {
-        // 샘플 데이터에서 주소 검색 (부분 일치)
-        let building = findSampleBuilding(address);
-        let usedFallback = false;
+        let building = null;
 
-        // 못 찾으면 첫 번째 샘플로 대체 (테스트용)
+        // 1. 실제 API 호출 시도
+        if (API_KEY) {
+            building = await searchBuildingFromAPI(address);
+        }
+
+        // 2. API 실패 또는 키 없음 → 샘플 데이터 사용
         if (!building) {
-            building = SAMPLE_BUILDINGS[0];
-            usedFallback = true;
+            building = processSearchFromSample(address);
         }
 
         showLoading(false);
@@ -416,20 +476,98 @@
             return;
         }
 
+        if (building) {
+            // 적용 법령 찾기
+            const laws = fireLawsData['옥내소화전']['연혁'];
+            const applicableLaw = findApplicableLaw(building.허가일, laws);
+
+            // 설치 대상 여부 판단
+            const { isTarget, matchedCondition } = checkFireHydrant(building, applicableLaw);
+
+            // 결과 표시
+            displayResult(building, isTarget, applicableLaw, matchedCondition);
+        }
+    }
+
+    /**
+     * 실제 API 호출
+     * @param {string} address - 검색할 주소
+     * @returns {object|null} 건축물 객체 또는 null
+     */
+    async function searchBuildingFromAPI(address) {
+        try {
+            // Vercel 프록시를 통해 API 호출
+            const PROXY_URL = 'https://fire-test.vercel.app/api/building';
+
+            const response = await fetch(`${PROXY_URL}?address=${encodeURIComponent(address)}&apiKey=${encodeURIComponent(API_KEY)}`);
+
+            if (!response.ok) {
+                throw new Error('API 호출 실패');
+            }
+
+            const data = await response.json();
+
+            // 응답 구조 확인
+            if (data.response && data.response.body && data.response.body.items) {
+                const items = data.response.body.items.item;
+
+                if (Array.isArray(items) && items.length > 0) {
+                    return parseAPIResponse(items[0]);
+                } else if (items) {
+                    return parseAPIResponse(items);
+                }
+            }
+
+            // 데이터가 없으면 샘플 사용
+            console.log('API 응답에 데이터 없음, 샘플 데이터 사용');
+            return null;
+
+        } catch (error) {
+            console.error('API 호출 오류:', error);
+            showError('❌ API 호출 중 오류가 발생했습니다. 샘플 데이터로 표시합니다.');
+            return null;
+        }
+    }
+
+    /**
+     * API 응답을 앱 데이터 형식으로 변환
+     * @param {object} item - API 응답 아이템
+     * @returns {object} 건축물 객체
+     */
+    function parseAPIResponse(item) {
+        return {
+            주소: `${item.platPlc || ''}`,
+            건축물명: item.bldNm || '정보 없음',
+            연면적: parseFloat(item.totArea) || 0,
+            지상층수: parseInt(item.grndFlrCnt) || 0,
+            지하층수: parseInt(item.ugrndFlrCnt) || 0,
+            주용도: item.mainPurpsCdNm || '정보 없음',
+            허가일: item.pmsDay || '',
+            사용승인일: item.useAprDay || ''
+        };
+    }
+
+    /**
+     * 샘플 데이터에서 검색 처리
+     * @param {string} address - 검색할 주소
+     * @returns {object} 건축물 객체
+     */
+    function processSearchFromSample(address) {
+        let building = findSampleBuilding(address);
+        let usedFallback = false;
+
+        // 못 찾으면 첫 번째 샘플로 대체 (테스트용)
+        if (!building) {
+            building = SAMPLE_BUILDINGS[0];
+            usedFallback = true;
+        }
+
         // 주소 미발견 안내
         if (usedFallback) {
             showError('⚠️ 입력한 주소를 찾을 수 없어 샘플 데이터(강남파이낸스센터)로 표시합니다.');
         }
 
-        // 적용 법령 찾기
-        const laws = fireLawsData['옥내소화전']['연혁'];
-        const applicableLaw = findApplicableLaw(building.허가일, laws);
-
-        // 설치 대상 여부 판단
-        const { isTarget, matchedCondition } = checkFireHydrant(building, applicableLaw);
-
-        // 결과 표시
-        displayResult(building, isTarget, applicableLaw, matchedCondition);
+        return building;
     }
 
     /**

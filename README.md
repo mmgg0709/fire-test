@@ -53,6 +53,76 @@
 4. "Commit changes" 클릭
 5. 웹사이트 새로고침 → 즉시 반영!
 
+## 🔌 실제 API 연동하기
+
+### 1단계: API 키 발급
+
+1. [공공데이터포털](https://www.data.go.kr) 접속
+2. 회원가입/로그인
+3. "건축물대장 표제부" 검색
+4. 활용신청 (승인까지 1~2시간 소요)
+5. 마이페이지에서 인증키 확인
+
+### 2단계: API 키 입력
+
+1. 웹사이트 접속: https://mmgg0709.github.io/fire-test
+2. 우측 상단 "⚙️ API 설정" 버튼 클릭
+3. API 키 입력
+4. "저장" 클릭
+
+### 3단계: 실제 주소로 검색
+
+- 서울시 강남구 테헤란로 152
+- 서울시 종로구 세종대로 209
+- 실제 건축물 주소 입력
+
+### ⚠️ 주의사항
+
+- API 키는 브라우저 localStorage에 저장됩니다
+- 공용 컴퓨터에서는 사용 후 키를 삭제하세요
+- API 호출 제한: 일 1,000건 (무료)
+
+### 🔧 Vercel 배포 (프록시 서버)
+
+이 프로젝트는 CORS 문제 해결을 위해 Vercel 프록시를 사용합니다.
+
+**배포 방법:**
+
+1. Vercel 계정 생성: https://vercel.com
+2. GitHub 저장소 연결
+3. 자동 배포 완료
+4. 프록시 URL: `https://fire-test.vercel.app/api/building`
+
+**로컬 테스트:**
+
+```bash
+npm install -g vercel
+vercel dev
+```
+
+### 📊 API 응답 구조
+
+```json
+{
+  "response": {
+    "body": {
+      "items": {
+        "item": {
+          "platPlc": "서울시 강남구 테헤란로 152",
+          "bldNm": "강남파이낸스센터",
+          "totArea": "5600.5",
+          "grndFlrCnt": "8",
+          "ugrndFlrCnt": "2",
+          "mainPurpsCdNm": "업무시설",
+          "pmsDay": "20190315",
+          "useAprDay": "20200822"
+        }
+      }
+    }
+  }
+}
+```
+
 ## 🔧 실제 API 연동 (선택사항)
 
 현재는 샘플 데이터로 작동하지만, 실제 정부 API 연동도 가능합니다.
@@ -82,6 +152,9 @@ const API_KEY = 'YOUR_API_KEY_HERE'; // ← 여기에 발급받은 키 입력
 
 - `index.html`: 메인 웹 페이지 (UI + 로직)
 - `fire-laws.json`: 옥내소화전 법령 연혁 데이터
+- `api/building.js`: Vercel 서버리스 프록시 함수
+- `vercel.json`: Vercel 배포 설정
+- `package.json`: 프로젝트 설정
 - `README.md`: 프로젝트 설명서
 
 ## 🎯 향후 계획
