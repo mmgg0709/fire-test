@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>소방시설 검색 시스템</title>
+    <style>
+        /* 기본 리셋 및 폰트 */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f5f5f5;
+            color: #333333;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            font-size: 16px;
+            line-height: 1.6;
+        }
+
+        /* 전체 레이아웃 */
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 24px 16px;
+        }
+
+        /* 헤더 */
+        header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 700;
+            color: #f44336;
+            margin-bottom: 8px;
+        }
+
+        header p {
+            font-size: 14px;
+            color: #666;
+        }
+
+        /* 카드 공통 */
+        .card {
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        /* 검색 섹션 */
+        .search-section .search-row {
+            display: flex;
+            gap: 8px;
+        }
+
+        .search-section label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .search-section input[type="text"] {
+            flex: 1;
+            padding: 10px 14px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .search-section input[type="text"]:focus {
+            border-color: #2196F3;
+        }
+
+        .search-section button {
+            padding: 10px 20px;
+            background-color: #2196F3;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background-color 0.2s;
+        }
+
+        .search-section button:hover {
+            background-color: #1976D2;
+        }
+
+        /* 샘플 주소 힌트 */
+        .hints {
+            margin-top: 12px;
+            font-size: 14px;
+            color: #666;
+        }
+
+        .hints span {
+            display: inline-block;
+            margin: 4px 6px 4px 0;
+            background: #e3f2fd;
+            color: #1565c0;
+            padding: 2px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+        }
+
+        .hints span:hover {
+            background: #bbdefb;
+        }
+
+        /* 로딩 메시지 */
+        #loading {
+            text-align: center;
+            color: #2196F3;
+            padding: 12px 0;
+            display: none;
+        }
+
+        /* 오류 메시지 */
+        #error-msg {
+            color: #f44336;
+            background: #ffebee;
+            border-radius: 4px;
+            padding: 12px 16px;
+            margin-bottom: 24px;
+            display: none;
+        }
+
+        /* 결과 섹션 */
+        #result-section {
+            display: none;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            color: #333;
+            border-bottom: 2px solid #2196F3;
+            padding-bottom: 8px;
+        }
+
+        /* 건축물 정보 그리드 */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .info-item {
+            background: #f9f9f9;
+            border-radius: 4px;
+            padding: 10px 14px;
+        }
+
+        .info-item .label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .info-item .value {
+            font-size: 15px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        /* 판단 결과 */
+        .result-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 20px;
+            font-weight: 700;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .result-badge.target {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .result-badge.non-target {
+            background: #f5f5f5;
+            color: #757575;
+        }
+
+        /* 법령 상세 */
+        .law-detail {
+            background: #f5f5f5;
+            border-radius: 4px;
+            padding: 14px 16px;
+            font-size: 14px;
+        }
+
+        .law-detail p {
+            margin-bottom: 8px;
+        }
+
+        .law-detail p:last-child {
+            margin-bottom: 0;
+        }
+
+        .law-detail .law-label {
+            color: #888;
+            font-size: 12px;
+        }
+
+        .law-detail .law-value {
+            color: #333;
+            font-weight: 500;
+        }
+
+        /* 반응형 */
+        @media (max-width: 520px) {
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .search-section .search-row {
+                flex-direction: column;
+            }
+
+            .search-section button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <!-- 헤더 -->
+    <header>
+        <h1>🔥 소방시설 검색 시스템</h1>
+        <p>옥내소화전 설치 대상 조회 (프로토타입)</p>
+    </header>
+
+    <!-- 검색 섹션 -->
+    <section class="card search-section">
+        <label for="address-input">🏠 건축물 주소 입력</label>
+        <div class="search-row">
+            <input
+                type="text"
+                id="address-input"
+                placeholder="예: 서울시 강남구 테헤란로 152"
+                autocomplete="off"
+            />
+            <button id="search-btn" onclick="searchBuilding()">검색</button>
+        </div>
+        <div class="hints">
+            <strong>샘플 주소:</strong>
+            <span onclick="fillAddress('서울시 강남구 테헤란로 152')">강남구 테헤란로 152</span>
+            <span onclick="fillAddress('서울시 종로구 세종대로 209')">종로구 세종대로 209</span>
+            <span onclick="fillAddress('서울시 마포구 양화로 45')">마포구 양화로 45</span>
+        </div>
+    </section>
+
+    <!-- 로딩 표시 -->
+    <div id="loading">🔍 검색 중...</div>
+
+    <!-- 오류 메시지 -->
+    <div id="error-msg"></div>
+
+    <!-- 결과 섹션 -->
+    <section id="result-section">
+        <!-- 건축물 기본 정보 -->
+        <div class="card" id="building-card">
+            <div class="section-title">🏢 건축물 기본 정보</div>
+            <div class="info-grid" id="building-info"></div>
+        </div>
+
+        <!-- 판단 결과 -->
+        <div class="card" id="judgment-card">
+            <div class="section-title">🚰 옥내소화전 설치 대상 판단</div>
+            <div id="judgment-result"></div>
+        </div>
+    </section>
+</div>
+
+<script>
+    /* ===== 샘플 건축물 데이터 ===== */
+    const SAMPLE_BUILDINGS = [
+        {
+            주소: "서울시 강남구 테헤란로 152",
+            건축물명: "강남파이낸스센터",
+            연면적: 5600,
+            지상층수: 8,
+            지하층수: 2,
+            주용도: "업무시설",
+            허가일: "2019-03-15",
+            사용승인일: "2020-08-22"
+        },
+        {
+            주소: "서울시 종로구 세종대로 209",
+            건축물명: "세종빌딩",
+            연면적: 2800,
+            지상층수: 6,
+            지하층수: 1,
+            주용도: "업무시설",
+            허가일: "2010-05-20",
+            사용승인일: "2011-03-10"
+        },
+        {
+            주소: "서울시 마포구 양화로 45",
+            건축물명: "마포소형빌딩",
+            연면적: 800,
+            지상층수: 3,
+            지하층수: 0,
+            주용도: "업무시설",
+            허가일: "2020-01-15",
+            사용승인일: "2020-10-30"
+        }
+    ];
+
+    /* API 키 (향후 실제 API 연동 시 입력) */
+    const API_KEY = 'YOUR_API_KEY_HERE';
+
+    /* 법령 데이터 캐시 */
+    let fireLawsData = null;
+
+    /* ===== 페이지 로드 시 초기화 ===== */
+    window.onload = init;
+
+    /**
+     * 초기화: 법령 데이터 로드 및 Enter 키 이벤트 등록
+     */
+    function init() {
+        loadFireLaws();
+
+        // Enter 키로 검색 실행
+        const input = document.getElementById('address-input');
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') {
+                searchBuilding();
+            }
+        });
+    }
+
+    /**
+     * fire-laws.json 파일에서 법령 데이터 로드
+     */
+    async function loadFireLaws() {
+        try {
+            const response = await fetch('fire-laws.json');
+            if (!response.ok) {
+                throw new Error('법령 데이터 파일을 불러오지 못했습니다.');
+            }
+            fireLawsData = await response.json();
+        } catch (err) {
+            showError('⚠️ 법령 데이터 로드 실패: ' + err.message);
+        }
+    }
+
+    /**
+     * 샘플 주소 힌트 클릭 시 입력란에 주소 채우기
+     */
+    function fillAddress(address) {
+        document.getElementById('address-input').value = address;
+        searchBuilding();
+    }
+
+    /**
+     * 건축물 검색 메인 함수
+     */
+    function searchBuilding() {
+        const address = document.getElementById('address-input').value.trim();
+        if (!address) {
+            showError('주소를 입력해주세요.');
+            return;
+        }
+
+        // 오류 초기화 및 로딩 표시
+        hideError();
+        showLoading(true);
+        hideResult();
+
+        // 법령 데이터가 없으면 다시 로드 시도
+        if (!fireLawsData) {
+            loadFireLaws().then(() => processSearch(address));
+        } else {
+            // 살짝 딜레이로 "검색 중" UX 연출
+            setTimeout(() => processSearch(address), 300);
+        }
+    }
+
+    /**
+     * 검색 처리: 샘플 데이터에서 부분 일치 검색 후 결과 표시
+     */
+    function processSearch(address) {
+        // 샘플 데이터에서 주소 검색 (부분 일치)
+        let building = findSampleBuilding(address);
+        let usedFallback = false;
+
+        // 못 찾으면 첫 번째 샘플로 대체 (테스트용)
+        if (!building) {
+            building = SAMPLE_BUILDINGS[0];
+            usedFallback = true;
+        }
+
+        showLoading(false);
+
+        if (!fireLawsData) {
+            showError('법령 데이터를 불러오지 못했습니다. 페이지를 새로고침 해주세요.');
+            return;
+        }
+
+        // 주소 미발견 안내
+        if (usedFallback) {
+            showError('⚠️ 입력한 주소를 찾을 수 없어 샘플 데이터(강남파이낸스센터)로 표시합니다.');
+        }
+
+        // 적용 법령 찾기
+        const laws = fireLawsData['옥내소화전']['연혁'];
+        const applicableLaw = findApplicableLaw(building.허가일, laws);
+
+        // 설치 대상 여부 판단
+        const { isTarget, matchedCondition } = checkFireHydrant(building, applicableLaw);
+
+        // 결과 표시
+        displayResult(building, isTarget, applicableLaw, matchedCondition);
+    }
+
+    /**
+     * 샘플 데이터에서 부분 일치 주소 검색
+     * @param {string} address - 검색할 주소
+     * @returns {object|null} 건축물 객체 또는 null
+     */
+    function findSampleBuilding(address) {
+        return SAMPLE_BUILDINGS.find(b =>
+            b.주소.includes(address) || address.includes(b.주소)
+        ) || null;
+    }
+
+    /**
+     * 허가일에 해당하는 법령 찾기
+     * @param {string} permitDateStr - 허가일 (YYYY-MM-DD)
+     * @param {Array} laws - 법령 연혁 배열
+     * @returns {object|null} 적용 법령 객체 또는 null
+     */
+    function findApplicableLaw(permitDateStr, laws) {
+        const permitDate = new Date(permitDateStr);
+
+        for (const law of laws) {
+            const start = new Date(law['시행일']);
+            // 종료일이 null이면 현재까지 적용
+            const end = law['종료일'] ? new Date(law['종료일']) : new Date('9999-12-31');
+
+            if (permitDate >= start && permitDate <= end) {
+                return law;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 옥내소화전 설치 대상 여부 판단
+     * @param {object} building - 건축물 정보
+     * @param {object|null} law - 적용 법령
+     * @returns {{ isTarget: boolean, matchedCondition: object|null }}
+     */
+    function checkFireHydrant(building, law) {
+        if (!law) {
+            return { isTarget: false, matchedCondition: null };
+        }
+
+        for (const condition of law['조건']) {
+            // 1. 용도 일치 확인
+            if (condition['용도'] !== building.주용도) {
+                continue;
+            }
+
+            // 2. 연면적 조건 확인 (조건 없으면 false로 처리)
+            const areaOk = condition['연면적_이상'] !== null
+                ? building.연면적 >= condition['연면적_이상']
+                : false;
+
+            // 3. 층수 조건 확인 (조건 없으면 false로 처리)
+            const floorOk = condition['층수_이상'] !== null
+                ? building.지상층수 >= condition['층수_이상']
+                : false;
+
+            // 4. 하나 이상의 조건 만족 시 설치 대상
+            if (areaOk || floorOk) {
+                return { isTarget: true, matchedCondition: condition };
+            }
+        }
+
+        return { isTarget: false, matchedCondition: null };
+    }
+
+    /**
+     * 결과 화면에 표시
+     */
+    function displayResult(building, isTarget, law, matchedCondition) {
+        // 건축물 기본 정보 표시
+        const infoGrid = document.getElementById('building-info');
+        infoGrid.innerHTML = `
+            <div class="info-item">
+                <div class="label">🏢 건축물명</div>
+                <div class="value">${escapeHtml(building.건축물명)}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">📍 주소</div>
+                <div class="value">${escapeHtml(building.주소)}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">📏 연면적</div>
+                <div class="value">${building.연면적.toLocaleString()} ㎡</div>
+            </div>
+            <div class="info-item">
+                <div class="label">🏗️ 층수</div>
+                <div class="value">지상 ${building.지상층수}층 / 지하 ${building.지하층수}층</div>
+            </div>
+            <div class="info-item">
+                <div class="label">🏛️ 주용도</div>
+                <div class="value">${escapeHtml(building.주용도)}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">📅 허가일</div>
+                <div class="value">${escapeHtml(building.허가일)}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">📅 사용승인일</div>
+                <div class="value">${escapeHtml(building.사용승인일)}</div>
+            </div>
+        `;
+
+        // 판단 결과 표시
+        const judgmentDiv = document.getElementById('judgment-result');
+
+        if (!law) {
+            judgmentDiv.innerHTML = `
+                <div class="result-badge non-target">⚠️ 해당 허가일에 적용되는 법령이 없습니다.</div>
+            `;
+        } else if (isTarget) {
+            judgmentDiv.innerHTML = `
+                <div class="result-badge target">✅ 설치 대상</div>
+                <div class="law-detail">
+                    <p>
+                        <span class="law-label">📋 적용 법령</span><br>
+                        <span class="law-value">${escapeHtml(law['법령명'])}</span>
+                    </p>
+                    <p>
+                        <span class="law-label">📅 시행일</span>
+                        <span class="law-value">${escapeHtml(law['시행일'])}</span>
+                        &nbsp;~&nbsp;
+                        <span class="law-value">${law['종료일'] ? escapeHtml(law['종료일']) : '현재'}</span>
+                    </p>
+                    ${matchedCondition ? `
+                    <p>
+                        <span class="law-label">📏 설치 기준</span><br>
+                        <span class="law-value">${escapeHtml(matchedCondition['설치기준'])}</span>
+                    </p>
+                    <p>
+                        <span class="law-label">💡 상세 설명</span><br>
+                        <span class="law-value">
+                            건축물 용도 <strong>${escapeHtml(building.주용도)}</strong>,
+                            연면적 <strong>${building.연면적.toLocaleString()} ㎡</strong>로
+                            기준 (<strong>${matchedCondition['연면적_이상'].toLocaleString()} ㎡ 이상</strong>)을 충족합니다.
+                        </span>
+                    </p>
+                    ` : ''}
+                </div>
+            `;
+        } else {
+            judgmentDiv.innerHTML = `
+                <div class="result-badge non-target">⚪ 비대상</div>
+                <div class="law-detail">
+                    <p>
+                        <span class="law-label">📋 적용 법령</span><br>
+                        <span class="law-value">${escapeHtml(law['법령명'])}</span>
+                    </p>
+                    <p>
+                        <span class="law-label">📅 시행일</span>
+                        <span class="law-value">${escapeHtml(law['시행일'])}</span>
+                        &nbsp;~&nbsp;
+                        <span class="law-value">${law['종료일'] ? escapeHtml(law['종료일']) : '현재'}</span>
+                    </p>
+                    <p>
+                        <span class="law-label">💡 상세 설명</span><br>
+                        <span class="law-value">
+                            건축물 용도 <strong>${escapeHtml(building.주용도)}</strong>,
+                            연면적 <strong>${building.연면적.toLocaleString()} ㎡</strong>로
+                            설치 대상 기준에 해당하지 않습니다.
+                        </span>
+                    </p>
+                </div>
+            `;
+        }
+
+        // 결과 섹션 표시
+        document.getElementById('result-section').style.display = 'block';
+    }
+
+    /* ===== 유틸리티 함수 ===== */
+
+    /**
+     * 로딩 표시/숨기기
+     */
+    function showLoading(visible) {
+        document.getElementById('loading').style.display = visible ? 'block' : 'none';
+    }
+
+    /**
+     * 결과 섹션 숨기기
+     */
+    function hideResult() {
+        document.getElementById('result-section').style.display = 'none';
+    }
+
+    /**
+     * 오류 메시지 표시
+     */
+    function showError(msg) {
+        const el = document.getElementById('error-msg');
+        el.textContent = msg;
+        el.style.display = 'block';
+    }
+
+    /**
+     * 오류 메시지 숨기기
+     */
+    function hideError() {
+        const el = document.getElementById('error-msg');
+        el.style.display = 'none';
+    }
+
+    /**
+     * XSS 방지용 HTML 이스케이프
+     */
+    function escapeHtml(str) {
+        if (str === null || str === undefined) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+</script>
+</body>
+</html>
